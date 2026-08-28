@@ -317,9 +317,7 @@ export const checkPlanDecision = async (state) => {
       console.log( "Plan changes requested.");
 
       const comments = await provider.getWorkItemComments( state.task.id);
-
-      console.log(`Comments: ${comments}`);
-
+      
       const feedback = extractPlanFeedback(comments, state.planPostedAt);
 
       if (!feedback.trim()) {
