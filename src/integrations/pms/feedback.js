@@ -1,8 +1,10 @@
-const AI_PLAN_MARKER = "[AI Coding Harness - Plan";
+const AI_PLAN_MARKER =
+  "[AI Coding Harness - Plan";
 
 
-export function isAIComment(comment) {
-  
+export function isAIComment(
+  comment
+) {
   if (!comment?.text) {
     return false;
   }
@@ -13,17 +15,25 @@ export function isAIComment(comment) {
 }
 
 
-export function isHumanComment(comment) {
+export function isHumanComment(
+  comment
+) {
   return (
-    Boolean(comment?.text?.trim()) &&
+    Boolean(
+      comment?.text?.trim()
+    ) &&
     !isAIComment(comment)
   );
 }
 
 
-export function extractPlanFeedback(
+/**
+ * Find the exact AI plan comment
+ * for a specific plan version.
+ */
+export function findAIPlanComment(
   comments,
-  planPostedAt
+  planVersion
 ) {
   if (!Array.isArray(comments)) {
     throw new Error(
@@ -31,90 +41,106 @@ export function extractPlanFeedback(
     );
   }
 
-  if (!planPostedAt) {
-    return "";
+  const marker =
+    `[AI Coding Harness - Plan v${planVersion}]`;
+
+  const matches =
+    comments.filter(
+      (comment) =>
+        comment?.text?.includes(
+          marker
+        )
+    );
+
+  if (!matches.length) {
+    return null;
   }
 
-  const cutoff =
-    new Date(planPostedAt).getTime();
+  /*
+   * There should normally be exactly
+   * one comment for a plan version.
+   *
+   * If a retry created a duplicate,
+   * select the latest one.
+   */
+  return matches
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt) -
+        new Date(b.createdAt)
+    )
+    .at(-1) ?? null;
+}
 
-  if (Number.isNaN(cutoff)) {
+
+/**
+ * Return only comments created after
+ * the exact AI plan comment.
+ *
+ * planCommentId is the authoritative
+ * review boundary.
+ */
+export function getCommentsAfterPlan(
+  comments,
+  planCommentId
+) {
+  if (!Array.isArray(comments)) {
     throw new Error(
-      `Invalid planPostedAt timestamp: ${planPostedAt}`
+      "Comments must be an array."
     );
   }
 
-  const feedback =
-    comments
-      .filter(isHumanComment)
-      .filter(
-        (comment) =>
-          Boolean(comment.createdAt)
-      )
-      .filter((comment) => {
-        const createdAt =
-          new Date(
-            comment.createdAt
-          ).getTime();
+  if (!planCommentId) {
+    throw new Error(
+      "Latest AI plan comment ID is required."
+    );
+  }
 
-        return (
-          !Number.isNaN(createdAt) &&
-          createdAt > cutoff
-        );
-      })
-      .sort(
-        (a, b) =>
-          new Date(a.createdAt) -
-          new Date(b.createdAt)
-      );
+  /*
+   * Taiga comments are normalized and
+   * sorted chronologically by mapper.
+   *
+   * We use the stable comment ID to
+   * establish the boundary.
+   */
+  const planIndex =
+    comments.findIndex(
+      (comment) =>
+        comment.id === planCommentId
+    );
 
-  return feedback
+  if (planIndex === -1) {
+    throw new Error(
+      "The latest AI plan comment could not be found in Taiga history ddds."
+    );
+  }
+
+  return comments
+    .slice(planIndex + 1)
+    .filter(
+      isHumanComment
+    );
+}
+
+
+/**
+ * Extract human feedback occurring
+ * after the latest AI plan.
+ */
+export function extractPlanFeedback(
+  comments,
+  planCommentId
+) {
+  const feedbackComments =
+    getCommentsAfterPlan(
+      comments,
+      planCommentId
+    );
+
+  return feedbackComments
     .map(
       (comment) =>
         `${comment.authorName}: ${comment.text.trim()}`
     )
     .join("\n\n");
 }
-
-
-/*export function extractPlanFeedback(comments,planPostedAt) {
-  if (!planPostedAt) {
-    return "";
-  }
-
-  const cutoff = new Date(planPostedAt).getTime();
-
-  const feedback =
-    comments
-      .filter(
-        (comment) =>
-          Boolean(
-            comment.text?.trim()
-          )
-      )
-      .filter(
-        (comment) =>
-          Boolean(
-            comment.createdAt
-          )
-      )
-      .filter(
-        (comment) =>
-          new Date(
-            comment.createdAt
-          ).getTime() >
-          cutoff
-      );
-
-  return feedback
-    .sort(
-      (a, b) =>
-        new Date(a.createdAt) -
-        new Date(b.createdAt)
-    )
-    .map(
-      (comment) =>
-        `${comment.authorName}: ${comment.text.trim()}`
-    )
-    .join("\n\n");
-}*/
