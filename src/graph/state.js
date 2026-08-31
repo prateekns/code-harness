@@ -32,10 +32,11 @@ export const CodingTaskState = new StateSchema({
   plan: z.string().default(""),
 
   planVersion: z.number().int().min(0).default(0),
+  planCommentId:z.string().nullable().default(null),
 
- planFeedback: z.string().default(""),
+  planFeedback: z.string().default(""),
 
-planPostedAt: z.string().nullable().default(null),
+  planPostedAt: z.string().nullable().default(null),
 
   planStatus: z.enum([
       "pending",
